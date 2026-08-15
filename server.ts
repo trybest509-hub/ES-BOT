@@ -2,6 +2,12 @@ import express from "express";
 import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import {
+  baileysState,
+  initBaileysSocket,
+  registerBaileysCallbacks,
+  sendWhatsAppMessageViaBaileys,
+} from "./src/lib/baileys-bridge.js";
 
 dotenv.config();
 
@@ -571,6 +577,107 @@ export async function createServer() {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", service: "ES TOPUP WhatsApp AI Bot", timestamp: Date.now() });
   });
+
+  // Register Baileys Real WhatsApp Web callbacks
+  registerBaileysCallbacks({
+    onQR: (qr) => {
+      qrStatus.qrCodeSeed = qr;
+      qrStatus.connected = false;
+      addLog("info", "WHATSAPP", "Nouvo Kòd QR WhatsApp Web Pare", "WhatsApp voye yon nouvo kòd QR ofisyèl pou eskanè.");
+    },
+    onConnect: (connected, phone) => {
+      qrStatus.connected = connected;
+      if (connected && phone) {
+        qrStatus.phoneNumber = phone;
+        qrStatus.lastConnectedAt = Date.now();
+        addLog("success", "WHATSAPP", "WhatsApp Konekte avèk Siksè!", `Aparèy lye: ${phone}. Bot la kounye a ap reponn an dirèk.`);
+      } else {
+        qrStatus.connected = false;
+        qrStatus.phoneNumber = undefined;
+        addLog("warning", "WHATSAPP", "WhatsApp Dekonekte", "Sesyon an fèmen oswa telefòn nan dekonekte.");
+      }
+    },
+    onMessage: async (fromNumber, messageBody, senderName) => {
+      try {
+        let conv = conversations.find((c) => c.clientNumber.replace(/[^0-9]/g, "") === fromNumber.replace(/[^0-9]/g, ""));
+        const isNew = !conv || conv.messages.length === 0;
+
+        if (!conv) {
+          conv = {
+            id: "conv-" + Date.now(),
+            clientNumber: fromNumber,
+            clientPseudo: senderName || "Kliyan " + fromNumber.slice(-4),
+            isNewClient: isNew,
+            autoReplyEnabled: true,
+            lastMessageTimestamp: Date.now(),
+            unreadCount: 1,
+            sentimentSummary: "net",
+            sentimentScore: 0,
+            lastIntent: "salitasyon",
+            messages: [],
+          };
+          conversations.unshift(conv);
+        } else {
+          conv.unreadCount += 1;
+          conv.lastMessageTimestamp = Date.now();
+        }
+
+        const userMsg: Message = {
+          id: "msg-" + Date.now(),
+          sender: "client",
+          text: messageBody,
+          timestamp: Date.now(),
+          status: "delivered",
+          detectedPseudo: senderName || conv.clientPseudo,
+        };
+        conv.messages.push(userMsg);
+
+        addLog("info", "WHATSAPP", `Nouvo Mesaj Resevwa soti nan ${fromNumber}`, `"${messageBody}"`, { from: fromNumber, sender: senderName });
+
+        if (botConfig.autoReplyGlobal && conv.autoReplyEnabled) {
+          const aiAnalysis = await generateAiBotResponse(
+            messageBody,
+            conv.clientPseudo,
+            conv.clientNumber,
+            conv.isNewClient,
+            conv.messages
+          );
+
+          conv.sentimentSummary = aiAnalysis.sentiment;
+          conv.sentimentScore = aiAnalysis.sentimentScore;
+          conv.lastIntent = aiAnalysis.intent;
+          if (aiAnalysis.detectedPseudo && aiAnalysis.detectedPseudo !== "Kliyan") {
+            conv.clientPseudo = aiAnalysis.detectedPseudo;
+          }
+          conv.isNewClient = false;
+
+          const botMsg: Message = {
+            id: "bot-" + Date.now(),
+            sender: "bot",
+            text: aiAnalysis.replyText,
+            timestamp: Date.now() + 500,
+            status: "sent",
+            sentiment: aiAnalysis.sentiment,
+            sentimentScore: aiAnalysis.sentimentScore,
+            detectedPseudo: conv.clientPseudo,
+            intent: aiAnalysis.intent,
+          };
+          conv.messages.push(botMsg);
+          conv.lastMessageTimestamp = Date.now() + 500;
+
+          // Send real reply back through WhatsApp socket
+          await sendWhatsAppMessageViaBaileys(fromNumber, aiAnalysis.replyText);
+
+          addLog("ai", "GEMINI_AI", `Repons Otomatik Voye bay ${conv.clientPseudo}`, `"${aiAnalysis.replyText}"`, { to: fromNumber });
+        }
+      } catch (err) {
+        console.error("Error handling incoming Baileys WhatsApp message:", err);
+      }
+    },
+  });
+
+  // Start Baileys socket asynchronously
+  initBaileysSocket().catch((err) => console.warn("Baileys start notice:", err));
 
   // Unified WhatsApp API endpoint supporting action=status, action=qr, action=send, and default
   app.all("/api/whatsapp", async (req, res) => {

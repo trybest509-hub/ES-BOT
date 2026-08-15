@@ -72,9 +72,14 @@ export const WhatsAppQRScanner: React.FC<WhatsAppQRScannerProps> = ({
 
   // The actual scannable QR content
   const qrDirectLink = `https://wa.me/${cleanPhone}?text=${defaultPreFilledMsg}`;
-  const qrWebPairingPayload = currentAuthSeed;
 
-  const currentQrValue = qrType === "web_pairing" ? qrWebPairingPayload : qrDirectLink;
+  // If Baileys provides an authentic WhatsApp Web Raw QR seed, use it directly!
+  const currentQrValue =
+    qrType === "web_pairing"
+      ? status.qrCodeSeed && status.qrCodeSeed.startsWith("2@")
+        ? status.qrCodeSeed
+        : currentAuthSeed
+      : qrDirectLink;
 
   useEffect(() => {
     const interval = setInterval(() => {
