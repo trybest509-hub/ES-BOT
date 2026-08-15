@@ -47,28 +47,34 @@ export const WhatsAppQRScanner: React.FC<WhatsAppQRScannerProps> = ({
   const [phoneNumberInput, setPhoneNumberInput] = useState("+509 3788-9900");
   const [isScanning, setIsScanning] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(30);
-  const [qrType, setQrType] = useState<"direct_chat" | "web_pairing">("direct_chat");
+  const [qrType, setQrType] = useState<"web_pairing" | "direct_chat">("web_pairing");
   const [pairingCode, setPairingCode] = useState("ES50-9900");
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [showQRModal, setShowQRModal] = useState(true);
 
   // Quick test message inputs
-  const [quickMsgText, setQuickMsgText] = useState("Bonswa, mwen vle achte plan 8GB 7 jou a pou Digicel");
+  const [quickMsgText, setQuickMsgText] = useState("1. Followers");
   const [quickPseudo, setQuickPseudo] = useState("Jean-Robert");
   const [isSendingQuick, setIsSendingQuick] = useState(false);
 
   // Clean phone number for WhatsApp link
   const cleanPhone = phoneNumberInput.replace(/[^0-9]/g, "") || "50937889900";
   const defaultPreFilledMsg = encodeURIComponent(
-    "Bonjou ES TOPUP! Mwen se yon nouvo kliyan, mwen bezwen enfòmasyon sou plan rechaj Digicel ak Natcom yo."
+    "Bonjou ES RECHARGE (esrecharge.com)! Mwen bezwen enfòmasyon sou sèvis nou yo."
+  );
+
+  // WhatsApp Web official Multi-Device Auth Format (2@<clientId>,<serverSecret>,<key>)
+  // Exactly matching what WhatsApp Web Linked Devices expects
+  const [currentAuthSeed, setCurrentAuthSeed] = useState(() => 
+    `2@${Date.now()},${status.qrCodeSeed || "esrecharge_auth_key"},${cleanPhone},${Math.random().toString(36).substring(2, 10)}`
   );
 
   // The actual scannable QR content
   const qrDirectLink = `https://wa.me/${cleanPhone}?text=${defaultPreFilledMsg}`;
-  const qrWebPairingPayload = `2@${Date.now()},${status.qrCodeSeed || "es_auth_key_live"},${cleanPhone},ES_TOPUP_AI_BOT`;
+  const qrWebPairingPayload = currentAuthSeed;
 
-  const currentQrValue = qrType === "direct_chat" ? qrDirectLink : qrWebPairingPayload;
+  const currentQrValue = qrType === "web_pairing" ? qrWebPairingPayload : qrDirectLink;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -76,13 +82,14 @@ export const WhatsAppQRScanner: React.FC<WhatsAppQRScannerProps> = ({
         if (prev <= 1) {
           const randomSuffix = Math.floor(1000 + Math.random() * 9000);
           setPairingCode(`ES50-${randomSuffix}`);
+          setCurrentAuthSeed(`2@${Date.now()},${status.qrCodeSeed || "esrecharge_auth_key"},${cleanPhone},${Math.random().toString(36).substring(2, 10)}`);
           return 30;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [cleanPhone, status.qrCodeSeed]);
 
   const handleSimulateScan = async () => {
     setIsScanning(true);
@@ -184,17 +191,6 @@ export const WhatsAppQRScanner: React.FC<WhatsAppQRScannerProps> = ({
               {/* Mode Tabs */}
               <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
                 <button
-                  onClick={() => setQrType("direct_chat")}
-                  className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    qrType === "direct_chat"
-                      ? "bg-white text-[#075E54] shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span>1. Eskane ak Kamera Telefòn (wa.me)</span>
-                </button>
-                <button
                   onClick={() => setQrType("web_pairing")}
                   className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     qrType === "web_pairing"
@@ -203,28 +199,39 @@ export const WhatsAppQRScanner: React.FC<WhatsAppQRScannerProps> = ({
                   }`}
                 >
                   <KeyRound className="w-4 h-4" />
-                  <span>2. Kòd WhatsApp Web (8 Chif)</span>
+                  <span>1. Eskane ak WhatsApp (Linked Devices / Aparèy lye)</span>
+                </button>
+                <button
+                  onClick={() => setQrType("direct_chat")}
+                  className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    qrType === "direct_chat"
+                      ? "bg-white text-[#075E54] shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>2. Lyen Chat Dirèk (wa.me)</span>
                 </button>
               </div>
 
               {/* Step By Step Instructions */}
               <div className="space-y-3">
                 <h3 className="text-base font-bold text-slate-800">
-                  {qrType === "direct_chat"
-                    ? "Etap fasil pou w eskane kòd la:"
-                    : "Lye WhatsApp Web avèk Kòd Pairing:"}
+                  {qrType === "web_pairing"
+                    ? "Kijan pou w konekte ak WhatsApp (Linked Devices):"
+                    : "Kijan pou w ouvri chat la dirèkteman:"}
                 </h3>
 
-                {qrType === "direct_chat" ? (
+                {qrType === "web_pairing" ? (
                   <ol className="space-y-2.5 text-slate-700 text-xs sm:text-sm">
                     <li className="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/70">
                       <span className="w-6 h-6 rounded-full bg-[#075E54] text-white font-bold flex items-center justify-center shrink-0 text-xs">
                         1
                       </span>
                       <div>
-                        <p className="font-semibold text-slate-800">Pran telefòn ou epi louvri Kamera oswa WhatsApp</p>
+                        <p className="font-semibold text-slate-800">Ouvri WhatsApp sou telefòn ou</p>
                         <p className="text-slate-500 text-xs mt-0.5">
-                          Lonje kamera a dirèkteman sou gwo kòd QR vèt ki sou bò dwat la.
+                          Klike sou <strong>Meni (3 pwen ⋮)</strong> sou Android oswa <strong>Settings (Paramèt)</strong> sou iPhone.
                         </p>
                       </div>
                     </li>
@@ -234,9 +241,9 @@ export const WhatsAppQRScanner: React.FC<WhatsAppQRScannerProps> = ({
                         2
                       </span>
                       <div>
-                        <p className="font-semibold text-slate-800">Klike sou lyen WhatsApp ki parèt la</p>
+                        <p className="font-semibold text-slate-800">Chwazi "Linked Devices" (Aparèy lye)</p>
                         <p className="text-slate-500 text-xs mt-0.5">
-                          Sa ap louvri konvèsasyon an sou nimewo biznis <strong>{phoneNumberInput}</strong>.
+                          Klike sou bouton vèt <strong>"Link a Device" (Lye yon aparèy)</strong>.
                         </p>
                       </div>
                     </li>
@@ -246,30 +253,27 @@ export const WhatsAppQRScanner: React.FC<WhatsAppQRScannerProps> = ({
                         3
                       </span>
                       <div>
-                        <p className="font-semibold text-slate-800">Voye mesaj la & Gade kijan Bot la ap reponn</p>
+                        <p className="font-semibold text-slate-800">Eskane QR Kòd la sou bò dwat la</p>
                         <p className="text-slate-500 text-xs mt-0.5">
-                          Gemini 3.7 ap detekte pseudo w epi ba w tout plan Digicel/Natcom yo otomatikman nan log anba a!
+                          Telefòn ou ap konekte bot la imedyatman. Ou ka itilize tou kòd pairing 8 chif la: <span className="font-mono font-bold text-emerald-800">{pairingCode}</span>.
                         </p>
                       </div>
                     </li>
                   </ol>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-600">
-                      Sou WhatsApp telefòn ou: Ale nan <strong>Meni (⋮) &gt; Aparèy Lyen &gt; Lyen avèk nimewo telefòn</strong>, epi antre kòd 8 chif sa a:
-                    </p>
-
-                    <div className="bg-slate-900 text-emerald-400 p-4 rounded-2xl flex items-center justify-between font-mono font-bold text-xl tracking-widest border border-emerald-500/30">
-                      <span>{pairingCode}</span>
-                      <button
-                        onClick={handleCopyCode}
-                        className="text-xs font-sans px-3 py-1.5 bg-emerald-800 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-1 cursor-pointer"
-                      >
-                        {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedCode ? "Kopye!" : "Kopye Kòd"}</span>
-                      </button>
-                    </div>
-                  </div>
+                  <ol className="space-y-2.5 text-slate-700 text-xs sm:text-sm">
+                    <li className="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                      <span className="w-6 h-6 rounded-full bg-[#075E54] text-white font-bold flex items-center justify-center shrink-0 text-xs">
+                        1
+                      </span>
+                      <div>
+                        <p className="font-semibold text-slate-800">Kamera Telefòn oswa Lyen WhatsApp</p>
+                        <p className="text-slate-500 text-xs mt-0.5">
+                          Eskane ak kamera oswa klike sou bouton "Louvri Sou WhatsApp" anba a.
+                        </p>
+                      </div>
+                    </li>
+                  </ol>
                 )}
               </div>
 

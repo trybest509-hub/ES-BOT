@@ -10,7 +10,7 @@ interface QRCodeDisplayProps {
 export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
   value,
   size = 260,
-  showLogo = true,
+  showLogo = false,
 }) => {
   const [dataUrl, setDataUrl] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
