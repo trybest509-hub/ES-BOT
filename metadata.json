@@ -1,0 +1,6 @@
+{
+  "name": "ES TOPUP WhatsApp AI Bot",
+  "description": "WhatsApp Bot ak Asistan AI entèlijan pou ES TOPUP avèk Gemini AI, eskanè QR WhatsApp, deteksyon pseudo pèsonalize, analiz santiman, ak tablodbò an tan reyèl.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
