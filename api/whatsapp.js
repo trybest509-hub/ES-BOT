@@ -4,9 +4,9 @@
 // Sèvis: Followers, Dyaman Free Fire, Nimewo Vityèl, USDT, Meru
 // ==========================================================
 
-const QRCode = require('qrcode');
+import QRCode from 'qrcode';
 
-// In-memory state pou sesyon Vercel & Web Server
+// In-memory state pou sesyon Vercel
 let botState = {
   isReady: false,
   statusMessage: "🔴 Offline - Eskane QR kòd la pou w konekte",
@@ -79,14 +79,14 @@ function generateEsRechargeSmartResponse(msg, pseudo) {
     return `Orevwa *${name}*! 👋 Mèsi paske w fè *${botState.website}* konfyans. Pase yon bèl jounen!`;
   }
 
-  // REPONS PA DEFO (Toujou gide kliyan an sou esrecharge.com san pale de digicel/natcom)
+  // REPONS PA DEFO
   return `Bonjou *${name}*! Mwen resevwa mesaj ou a.\n\nSou *${botState.website}*, nou ofri:\n👥 1. Followers Rezo Sosyal (TikTok, IG, FB, YouTube)\n💎 2. Dyaman Free Fire sou UID\n🌍 3. Nimewo Entènasyonal Vityèl (USA, France...)\n💵 4. Rechaj USDT Crypto\n⚡ 5. Rechaj Meru\n\n👉 Tape *MENU* pou wè tout opsyon yo oswa vizite sit nou an: *${botState.website}*!`;
 }
 
 // ==========================================================
-// VERCEL SERVERLESS HANDLER
+// VERCEL SERVERLESS HANDLER (ESM Export)
 // ==========================================================
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -100,7 +100,7 @@ module.exports = async (req, res) => {
     const action = req.query.action || (req.body && req.body.action);
 
     // 1. STATUS
-    if (action === 'status' || req.path === '/status') {
+    if (action === 'status' || req.url?.includes('status')) {
       return res.status(200).json({
         name: "WhatsApp Bot - ES RECHARGE Assistant",
         website: botState.website,
@@ -126,8 +126,7 @@ module.exports = async (req, res) => {
     }
 
     // 2. QR CODE ENDPOINT
-    if (action === 'qr' || req.path === '/qr') {
-      // Jenere yon kòd pairing WhatsApp Web valid
+    if (action === 'qr' || req.url?.includes('qr')) {
       const seed = `2@${Date.now()},esrecharge_${Math.random().toString(36).substring(2, 12)},${Math.random().toString(36).substring(2, 10)}`;
       const qrDataUrl = await QRCode.toDataURL(seed, {
         errorCorrectionLevel: 'H',
@@ -205,4 +204,4 @@ module.exports = async (req, res) => {
       message: error.message
     });
   }
-};
+}

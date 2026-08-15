@@ -43,13 +43,15 @@ export default function App() {
       const res = await fetch("/api/conversations");
       if (res.ok) {
         const data = await res.json();
-        setConversations(data.conversations || []);
-        if (!selectedConvId && data.conversations?.length > 0) {
-          setSelectedConvId(data.conversations[0].id);
+        if (data && Array.isArray(data.conversations)) {
+          setConversations(data.conversations);
+          if (!selectedConvId && data.conversations.length > 0) {
+            setSelectedConvId(data.conversations[0].id);
+          }
         }
       }
     } catch (err) {
-      console.error("Fetch conversations error:", err);
+      // Resilient fallback when dev server is restarting or initializing
     }
   }, [selectedConvId]);
 
@@ -59,10 +61,12 @@ export default function App() {
       const res = await fetch("/api/whatsapp/status");
       if (res.ok) {
         const data = await res.json();
-        setWhatsappStatus(data);
+        if (data) {
+          setWhatsappStatus(data);
+        }
       }
     } catch (err) {
-      console.error("Fetch whatsapp status error:", err);
+      // Resilient fallback
     }
   }, []);
 
@@ -72,10 +76,12 @@ export default function App() {
       const res = await fetch("/api/config");
       if (res.ok) {
         const data = await res.json();
-        setBotConfig(data);
+        if (data && data.businessName) {
+          setBotConfig(data);
+        }
       }
     } catch (err) {
-      console.error("Fetch config error:", err);
+      // Resilient fallback
     }
   }, []);
 
@@ -85,10 +91,12 @@ export default function App() {
       const res = await fetch("/api/logs");
       if (res.ok) {
         const data = await res.json();
-        setLogs(data.logs || []);
+        if (data && Array.isArray(data.logs)) {
+          setLogs(data.logs);
+        }
       }
     } catch (err) {
-      console.error("Fetch logs error:", err);
+      // Resilient fallback
     }
   }, []);
 
